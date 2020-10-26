@@ -9,6 +9,9 @@ MEMORY
 	app_ram     (rwx) : ORIGIN = 0x20000400, LENGTH = 0xFC00 /*  63K */
 }
 
+_sboot_config = ORIGIN(boot_config);
+_eboot_config = ORIGIN(boot_config) + LENGTH(boot_config);
+
 SECTIONS
 {
 	.text :
