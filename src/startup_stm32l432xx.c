@@ -18,7 +18,7 @@ extern uint32_t _edata;
 
 int main(void);
 
-void Reset_Handler(void) {
+void entry_point(void) {
 
 	// Disable interrupts
 	__disable_irq();
@@ -102,6 +102,18 @@ void Default_Handler(void) {
 
 void __attribute__((weak, alias("Default_Handler"))) CAN1_RX0_IRQHandler();
 void __attribute__((weak, alias("Default_Handler"))) CAN1_RX1_IRQHandler();
+
+__asm__(
+        ".thumb\n"
+        ".section .text\n"
+        ".global Reset_Handler\n"
+        ".type Reset_Handler, %function\n"
+        "Reset_Handler:\n"
+        "ldr sp, =_estack\n"
+        "b entry_point\n"
+);
+
+extern void Reset_Handler(void);
 
 __attribute__((section(".vectors")))
 const void *isr_vector[128] = {

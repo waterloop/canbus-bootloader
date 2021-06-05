@@ -1,16 +1,19 @@
 MEMORY
 {
-	boot_rom    (rx)  : ORIGIN = 0x8000000, LENGTH = 0x00800 /*   2K */
-	boot_config (rx)  : ORIGIN = 0x8000800, LENGTH = 0x00800 /*   2K */
-	app_rom     (rx)  : ORIGIN = 0x8001000, LENGTH = 0x3F000 /* 252K */
+	boot_rom    (rx)  : ORIGIN = 0x08000000, LENGTH = 0x01000 /*   4K */
+	boot_config (rx)  : ORIGIN = 0x08001000, LENGTH = 0x00800 /*   2K */
+	app_rom     (rx)  : ORIGIN = 0x08001800, LENGTH = 0x3F000 /* 252K */
 
-	vector_reloc(rwx) : ORIGIN = 0x20000000, LENGTH = 0x0200 /* 512  */
-	boot_ram    (rwx) : ORIGIN = 0x20000200, LENGTH = 0x0200 /* 512  */
-	app_ram     (rwx) : ORIGIN = 0x20000400, LENGTH = 0xFC00 /*  63K */
+	ram         (rwx) : ORIGIN = 0x20000000, LENGTH = 0x10000 /*  64K */
 }
 
+STACK_SIZE = 0x4000;
+
+_sapp_rom = ORIGIN(app_rom);
+_eapp_rom = ORIGIN(app_rom) + LENGTH(app_rom);
 _sboot_config = ORIGIN(boot_config);
 _eboot_config = ORIGIN(boot_config) + LENGTH(boot_config);
+_estack = ORIGIN(ram) + LENGTH(ram);
 
 SECTIONS
 {
@@ -28,22 +31,22 @@ SECTIONS
 		*(.bss*)
 		*(COMMON)
 		_ebss = .;
-	} > boot_ram
+	} > ram
 
 	.data :
 	{
 		_sdata = .;
 		*(.data*)
 		_edata = .;
-	} > boot_ram AT > boot_rom
+	} > ram AT > boot_rom
 
-	.stack(NOLOAD) :
+/*	.stack(NOLOAD) :
 	{
 		. = ALIGN(8);
 		_sstack = .;
-		. = . + LENGTH(app_ram);
+		. = . + STACK_SIZE;
 		. = ALIGN(8);
 		_estack = .;
-	} > app_ram
+	} > ram*/
 }
 

@@ -14,9 +14,8 @@ typedef enum {
 void canbus_init(uint8_t short_device_id);
 canbus_ret_t canbus_transmit_fast(uint32_t id, const void *data, uint8_t len);
 canbus_ret_t canbus_transmit(uint32_t id, const void *data, uint8_t len);
-void canbus_set_user_isr(void (*callback)());
 canbus_ret_t canbus_receive(uint32_t *id, void *data, uint8_t *len, uint8_t mailbox);
-
+void canbus_enable_isr2(void);
 
 #define CAN_STID(x) ((x) << 21)
 #define CAN_EXID(x) (((x) << 3) | 4)

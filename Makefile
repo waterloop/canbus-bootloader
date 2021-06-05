@@ -13,7 +13,7 @@ DEPENDS = ${OBJECTS:.o=.d}
 CC = $(PREFIX)gcc
 OBJCOPY = $(PREFIX)objcopy
 
-CFLAGS = -mcpu=$(CPU) -mthumb -Wall -std=c11 -MMD -Og -fno-builtin -ffunction-sections -fdata-sections -g -nostdlib
+CFLAGS = -mcpu=$(CPU) -mthumb -Wall -std=c11 -MMD -Os -fno-builtin -ffunction-sections -fdata-sections -g -nostdlib
 LDFLAGS = -mcpu=$(CPU) -mthumb -Wl,-Map=$(BUILD_DIR)/$(TARGET).map -Wl,--gc-sections -Wl,--print-memory-usage -T$(LDFILE)
 
 CFLAGS += $(foreach i,$(INCLUDES),-I$(i))
