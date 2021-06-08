@@ -11,13 +11,13 @@ extern uint32_t _sapp_rom;
 #define VERSION_MAJOR 0x01
 #define VERSION_MINOR 0x00
 #define DEVICE_TYPE 0x00
-#define INFO ((VERSION_MAJOR << 24) | (VERSION_MINOR << 16) | (DEVICE_TYPE))
+#define INFO ((VERSION_MAJOR << 16) | (VERSION_MINOR << 8) | (DEVICE_TYPE))
 
 #define MODE_APPLICATION 0
 #define MODE_BOOTLOADER 1
 
 // Used to determine whether we have entered user application
-uint64_t bootloader_key = BOOTLOADER_KEY;
+uint64_t bootloader_key;
 
 #define PROTOCOL_STATUS_ERASE_OK 0x01
 #define PROTOCOL_STATUS_COMMIT_OK 0x02
@@ -57,6 +57,7 @@ void change_mode(uint8_t mode) {
             entry.mode = mode;
             flash_unlock();
             flash_eeprom_write(&entry);
+            flash_lock();
         }
     }
 }
@@ -70,11 +71,12 @@ void change_short_device_id(uint32_t short_device_id) {
             entry.short_device_id = short_device_id;
             flash_unlock();
             flash_eeprom_write(&entry);
+            flash_lock();
         }
     }
 }
 
-#define CMD_ID(cmd) (0x1F | (cmd << 16))
+#define CMD_ID(cmd) (0x1F000000 | ((cmd) << 16))
 
 void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
     uint32_t id;
@@ -112,22 +114,22 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 				change_mode(param);
 			}
 			// System reset
-			SCB->AIRCR |= SCB_AIRCR_SYSRESETREQ_Msk; // Does not return
+			SCB->AIRCR ^= 0xFFFF0000 | SCB_AIRCR_SYSRESETREQ_Msk; // Does not return
 			return;
 	}
 
     if(bootloader_key != BOOTLOADER_KEY) {
-        goto transmit;
+    	return;
     }
 
 	switch((id >> 16) & 0xFF) {
 		case CMD_CHANGE_SHORT_ID:
-			if(len != 8 || data.u64 != compute_device_id()) {
+			if(len != 8 || data.u32[0] != INFO || data.u32[1] != compute_device_id()) {
 				return;
 			}
 			change_short_device_id(param);
 			// System reset
-			SCB->AIRCR |= SCB_AIRCR_SYSRESETREQ_Msk; // Does not return
+			SCB->AIRCR ^= 0xFFFF0000 | SCB_AIRCR_SYSRESETREQ_Msk; // Does not return
 			return;
 		case CMD_FLASH_ERASE:
 			if(len != 8) {
@@ -147,10 +149,12 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 				return;
 			}
 			if(flash_range_check(data.u32[0], data.u32[1]) != FLASH_OK) {
+				id = CMD_ID(CMD_STATUS);
 				len = 0;
 				param = PROTOCOL_STATUS_CRC_OUT_OF_BOUNDS;
+				goto transmit;
 			}
-			CRC->INIT = 0;
+			CRC->INIT = 0xFFFFFFFF;
 			for(uint32_t ptr = data.u32[0]; ptr < data.u32[0] + data.u32[1]; ++ptr) {
 				CRC->DR = *(uint8_t *) ptr;
 			}
@@ -168,14 +172,16 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 			if(len != 8 || data.u32[0] & 7) { // Make sure that address is a multiple of 8
 				return;
 			}
-			CRC->INIT = 0;
+			CRC->INIT = 0xFFFFFFFF;
 			CRC->DR = data.u32[0];
+			*(uint8_t *) &CRC->DR = param; // Perform 8 bit write
 			for(uint16_t i = 0; i <= param; ++i) {
 				CRC->DR = flash_write_buffer[i].u32[0];
 				CRC->DR = flash_write_buffer[i].u32[1];
 			}
 			id = CMD_ID(CMD_STATUS);
 			if(CRC->DR == data.u32[1]) {
+				flash_unlock();
 				if(flash_write((void *) data.u32[0], flash_write_buffer, ((uint32_t) param + 1) << 3) != FLASH_OK) {
 					len = 0;
 					param = PROTOCOL_STATUS_COMMIT_FLASH_FAIL;
@@ -183,6 +189,7 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 					len = 0;
 					param = PROTOCOL_STATUS_COMMIT_OK;
 				}
+				flash_lock();
 			} else {
 				len = 0;
 				param = PROTOCOL_STATUS_COMMIT_CRC_FAIL;
@@ -199,7 +206,7 @@ int main(void) {
     init_crc();
     uint32_t device_id = compute_device_id();
 
-    struct flash_eeprom_entry entry = {};
+	struct flash_eeprom_entry entry = {};
     struct flash_eeprom_entry *old_entry;
     if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
         entry = *old_entry;
@@ -208,7 +215,15 @@ int main(void) {
         entry.is_free = 0;
         entry.short_device_id = device_id & 0xFF;
         entry.mode = MODE_BOOTLOADER;
+	    flash_unlock();
         flash_eeprom_write(&entry);
+        flash_lock();
+    }
+
+    if(entry.mode == MODE_BOOTLOADER) {
+    	bootloader_key = BOOTLOADER_KEY;
+    } else {
+    	bootloader_key = 0;
     }
 
 	canbus_init(entry.short_device_id);
@@ -225,10 +240,11 @@ int main(void) {
 	RCC->CSR |= RCC_CSR_RMVF;
 
 	if(entry.mode == MODE_APPLICATION) {
-	    // Reset bootloader key so ISR knows which mode we're in
-	    bootloader_key = 0;
+		DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Start CYCCNT counter
+		uint32_t starting = DWT->CYCCNT;
+		while(DWT->CYCCNT - starting <= 80000000L); // Delay for 1s (80M cycles)
 
-	    __disable_irq();
+		__disable_irq();
 
 	    SCB->VTOR = (uint32_t) &_sapp_rom;
 
@@ -236,9 +252,7 @@ int main(void) {
 	    __asm volatile("mov sp, %0" : : "r" (&_sapp_rom));
 	    // Jump to the user application. Does not return
 		__asm volatile("bx %0" : : "r" (&_sapp_rom + 1));
-	} else {
-        flash_unlock();
-    }
+	}
 
     return 0;
 }

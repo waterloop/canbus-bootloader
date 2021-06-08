@@ -75,8 +75,8 @@ canbus_ret_t canbus_transmit_fast(uint32_t id, const void *data, uint8_t len) {
 	// Get a free mailbox
 	uint8_t tx_mb = REG_FIELD_GET(CAN->TSR, CAN_TSR_CODE);
 	// Fill the mailbox and transmit
-	CAN->sTxMailBox[tx_mb].TDLR = *(uint32_t *) data;
-	CAN->sTxMailBox[tx_mb].TDHR = *((uint32_t *) data + 1);
+	CAN->sTxMailBox[tx_mb].TDLR = ((uint32_t *) data)[0];
+	CAN->sTxMailBox[tx_mb].TDHR = ((uint32_t *) data)[1];
 	CAN->sTxMailBox[tx_mb].TDTR = len;
 	CAN->sTxMailBox[tx_mb].TIR = id | CAN_TI0R_TXRQ;
 	return CANBUS_OK;
@@ -90,7 +90,7 @@ canbus_ret_t canbus_transmit(uint32_t id, const void *data, uint8_t len) {
 	// Copy into local bytes array to make sure we're giving a buffer of size 8
 	uint8_t bytes[8];
 	for(uint8_t i = 0; i < 8; ++i) {
-		bytes[i] = *((uint8_t *) data + i);
+		bytes[i] = ((uint8_t *) data)[i];
 	}
 	return canbus_transmit_fast(id, bytes, len);
 }
@@ -109,8 +109,8 @@ canbus_ret_t canbus_receive(uint32_t *id, void *data, uint8_t *len, uint8_t mail
     }
     // Copy data into RAM
     *id = CAN1->sFIFOMailBox[mailbox].RIR;
-    *(uint32_t*) data = CAN1->sFIFOMailBox[mailbox].RDLR;
-    *((uint32_t*) data + 1) = CAN1->sFIFOMailBox[mailbox].RDHR;
+	((uint32_t *) data)[0] = CAN1->sFIFOMailBox[mailbox].RDLR;
+	((uint32_t *) data)[1] = CAN1->sFIFOMailBox[mailbox].RDHR;
     *len = CAN1->sFIFOMailBox[mailbox].RDTR & CAN_RDT0R_DLC_Msk;
     *RFxR |= CAN_RF0R_RFOM0;
 	return CANBUS_OK;
