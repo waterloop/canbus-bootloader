@@ -20,7 +20,7 @@ void flash_eeprom_find_free(struct flash_eeprom_entry **entry_addr) {
     uint32_t end = (uint32_t) &_eboot_config;
     while(end - start >= sizeof(struct flash_eeprom_entry)) {
         uint32_t mid = start + ((end - start) >> 1);
-        if(((struct flash_eeprom_entry *) mid)->is_free) {
+        if(*(uint64_t *) mid == 0xFFFFFFFFFFFFFFFFL) {
             end = mid;
         } else {
             start = mid;
@@ -60,7 +60,8 @@ static flash_ret_t flash_erase(uint32_t page) {
     flash_wait_write_ready();
     FLASH->CR |= REG_FIELD(FLASH_CR_PNB, page) | FLASH_CR_PER;
     FLASH->CR |= FLASH_CR_STRT;
-    if(FLASH->CR & FLASH_SR_PGSERR) {
+	FLASH->CR &= ~FLASH_CR_PER;
+	if(FLASH->SR & FLASH_SR_PGSERR) {
         return FLASH_ERASE_FAIL;
     }
     return FLASH_OK;
@@ -102,10 +103,12 @@ flash_ret_t flash_write(void *addr, const void *data, uint32_t len) {
         dst += 2;
         while(FLASH->SR & FLASH_SR_BSY_Msk);
         // Check for success
-        if(!(FLASH->SR & FLASH_SR_EOP_Msk)) {
+        if(FLASH->SR & (FLASH_SR_PROGERR | FLASH_SR_SIZERR | FLASH_SR_PGAERR | FLASH_SR_PGSERR | FLASH_SR_WRPERR)) {
+	        FLASH->SR &= ~FLASH_SR_EOP;
+	        FLASH->CR &= ~FLASH_CR_PG;
             return FLASH_WRITE_FAIL;
         }
-        FLASH->SR |= FLASH_SR_EOP;
+        FLASH->SR &= ~FLASH_SR_EOP;
     }
     FLASH->CR &= ~FLASH_CR_PG;
     return FLASH_OK;

@@ -19,12 +19,14 @@ extern uint32_t _sapp_rom;
 // Used to determine whether we have entered user application
 uint64_t bootloader_key;
 
+#define PROTOCOL_STATUS_NONE 0x00
 #define PROTOCOL_STATUS_ERASE_OK 0x01
 #define PROTOCOL_STATUS_COMMIT_OK 0x02
 #define PROTOCOL_STATUS_ERASE_FAIL 0x81
 #define PROTOCOL_STATUS_CRC_OUT_OF_BOUNDS 0x82
 #define PROTOCOL_STATUS_COMMIT_CRC_FAIL 0x83
 #define PROTOCOL_STATUS_COMMIT_FLASH_FAIL 0x84
+#define PROTOCOL_STATUS_COMMIT_OUT_OF_BOUNDS 0x85
 
 #define CMD_DEVICE_IDENT_REQ 0x00
 #define CMD_DEVICE_IDENT 0x01
@@ -136,13 +138,15 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 				return;
 			}
 			id = CMD_ID(CMD_STATUS);
+			flash_unlock();
 			if((data.u8[0] = flash_erase_addr_range(data.u32[0], data.u32[1])) != FLASH_OK) {
-				len = 1;
+				len = 0;
 				param = PROTOCOL_STATUS_ERASE_FAIL;
 			} else {
 				len = 0;
 				param = PROTOCOL_STATUS_ERASE_OK;
 			}
+			flash_lock();
 			goto transmit;
 		case CMD_FLASH_CHECKSUM:
 			if(len != 8) {
@@ -156,10 +160,10 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 			}
 			CRC->INIT = 0xFFFFFFFF;
 			for(uint32_t ptr = data.u32[0]; ptr < data.u32[0] + data.u32[1]; ++ptr) {
-				CRC->DR = *(uint8_t *) ptr;
+				*(uint8_t *) &CRC->DR = *(uint8_t *) ptr;
 			}
 			id = CMD_ID(CMD_FLASH_CHECKSUM_RESP);
-			data.u32[1] = CRC->DR;
+			data.u32[1] = CRC->DR ^ 0xFFFFFFFF;
 			param = 0;
 			goto transmit;
 		case CMD_FLASH_BUFFER_WRITE_DATA:
@@ -180,14 +184,17 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 				CRC->DR = flash_write_buffer[i].u32[1];
 			}
 			id = CMD_ID(CMD_STATUS);
-			if(CRC->DR == data.u32[1]) {
+			if(flash_range_check(data.u32[0], ((uint32_t) param + 1) << 3) != FLASH_OK) {
+				len = 0;
+				param = PROTOCOL_STATUS_COMMIT_OUT_OF_BOUNDS;
+			} else if((CRC->DR ^ 0xFFFFFFFF) == data.u32[1]) {
 				flash_unlock();
-				if(flash_write((void *) data.u32[0], flash_write_buffer, ((uint32_t) param + 1) << 3) != FLASH_OK) {
-					len = 0;
-					param = PROTOCOL_STATUS_COMMIT_FLASH_FAIL;
-				} else {
+				if(flash_write((void *) data.u32[0], flash_write_buffer, ((uint32_t) param + 1) << 3) == FLASH_OK) {
 					len = 0;
 					param = PROTOCOL_STATUS_COMMIT_OK;
+				} else {
+					len = 0;
+					param = PROTOCOL_STATUS_COMMIT_FLASH_FAIL;
 				}
 				flash_lock();
 			} else {
@@ -242,16 +249,18 @@ int main(void) {
 	if(entry.mode == MODE_APPLICATION) {
 		DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Start CYCCNT counter
 		uint32_t starting = DWT->CYCCNT;
-		while(DWT->CYCCNT - starting <= 80000000L); // Delay for 1s (80M cycles)
+		while(DWT->CYCCNT - starting <= 80000000L); // Delay for 1s (80M cycles), to allow mode switching in case of crash
 
 		__disable_irq();
 
 	    SCB->VTOR = (uint32_t) &_sapp_rom;
 
+		__enable_irq();
+
 	    // Update stack pointer to the one specified in user application
-	    __asm volatile("mov sp, %0" : : "r" (&_sapp_rom));
+	    __asm volatile("mov sp, %0" : : "r" ((&_sapp_rom)[0]));
 	    // Jump to the user application. Does not return
-		__asm volatile("bx %0" : : "r" (&_sapp_rom + 1));
+		__asm volatile("bx %0" : : "r" ((&_sapp_rom)[1]));
 	}
 
     return 0;
