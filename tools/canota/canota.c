@@ -34,32 +34,6 @@
 #define CMD_STATUS 0xFE
 #define CMD_RESET_INFO 0xFF
 
-union u64_aliases {
-	uint64_t u64;
-	uint32_t u32[2];
-	uint16_t u16[4];
-	uint8_t u8[8];
-};
-
-struct canota_device_ctx {
-	struct canota_ctx *ctx;
-	uint32_t device_id;
-	uint8_t short_device_id;
-	enum canota_mode mode;
-	struct {
-		uint8_t device_type;
-		uint8_t version_minor;
-		uint8_t version_major;
-		uint8_t reserved0;
-	} __attribute__((__packed__)) info;
-};
-
-struct canota_ctx {
-	int can_fd;
-	struct pollfd can_pollfd;
-	uint32_t timeout;
-};
-
 struct canota_ctx *canota_init(const char *iface) {
 	int can_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
 	if(can_fd < 0) {
@@ -87,6 +61,7 @@ struct canota_ctx *canota_init(const char *iface) {
 	ctx->can_pollfd.fd = can_fd;
 	ctx->can_pollfd.events = POLLIN;
 	ctx->timeout = 5000;
+	ctx->write_delay = 100;
 	return ctx;
 }
 
@@ -99,13 +74,12 @@ bool canota_raw_cmd(struct canota_device_ctx *dev, uint8_t cmd, uint8_t param, v
 			.can_dlc = len,
 	};
 	memcpy(frame.data, data, len);
-	return write(dev->ctx->can_fd, &frame, sizeof(frame)) == sizeof(frame);
+	bool res = write(dev->ctx->can_fd, &frame, sizeof(frame)) == sizeof(frame);
+	if(dev->ctx->write_delay) {
+		usleep(dev->ctx->write_delay);
+	}
+	return res;
 }
-
-struct mask_match {
-	uint32_t mask;
-	uint32_t match;
-};
 
 bool canota_raw_recv_frame(struct canota_ctx *ctx, struct can_frame *frame, struct mask_match *matches, size_t nmatches) {
 	struct timespec ts;
@@ -287,16 +261,15 @@ check_fail:
 }
 
 bool canota_flash_write_page(struct canota_device_ctx *dev, void *data, uint32_t data_len, uint32_t addr) {
-	// Must be non zero length, <= 2048 bytes and a multiple of 8
 	uint8_t len;
 	uint8_t param;
 	uint32_t crc = CRC32_INIT;
 
+	// Must be non zero length, <= 2048 bytes and a multiple of 8
 	CHECK((addr & 7) == 0 && data_len > 0 && data_len <= 2048 && (data_len & 7) == 0, "invalid parameters", check_fail);
 	param = (data_len >> 3) - 1;
 	for(uint32_t i = 0; i < data_len >> 3; ++i) {
 		CHECK(canota_cmd_flash_buffer_write_data(dev, (uint8_t *) data + (i << 3), i), "write failed", check_fail);
-		usleep(100);
 	}
 	crc32(&addr, 4, &crc);
 	crc32(&param, 1, &crc);
