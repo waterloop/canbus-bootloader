@@ -1,7 +1,7 @@
 #include "flash.h"
 #include "utils.h"
 
-#include <stm32l432xx.h>
+#include <system_inc.h>
 
 extern uint32_t _sapp_rom;
 extern uint32_t _eapp_rom;

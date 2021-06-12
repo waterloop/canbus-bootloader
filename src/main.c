@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "flash.h"
 
-#include <stm32l432xx.h>
+#include <system_inc.h>
 
 extern uint32_t _sapp_rom;
 
@@ -262,6 +262,5 @@ int main(void) {
 	    // Jump to the user application. Does not return
 		__asm volatile("bx %0" : : "r" ((&_sapp_rom)[1]));
 	}
-
-    return 0;
+	while(1); // Never return
 }

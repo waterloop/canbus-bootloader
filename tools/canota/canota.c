@@ -34,6 +34,29 @@
 #define CMD_STATUS 0xFE
 #define CMD_RESET_INFO 0xFF
 
+char *decode_status(uint8_t status) {
+	switch(status) {
+		case PROTOCOL_STATUS_NONE:
+			return "none";
+		case PROTOCOL_STATUS_ERASE_OK:
+			return "erase_ok";
+		case PROTOCOL_STATUS_COMMIT_OK:
+			return "commit_ok";
+		case PROTOCOL_STATUS_ERASE_FAIL:
+			return "erase_fail";
+		case PROTOCOL_STATUS_CRC_OUT_OF_BOUNDS:
+			return "crc_out_of_bounds";
+		case PROTOCOL_STATUS_COMMIT_CRC_FAIL:
+			return "commit_crc_fail";
+		case PROTOCOL_STATUS_COMMIT_FLASH_FAIL:
+			return "commit_flash_fail";
+		case PROTOCOL_STATUS_COMMIT_OUT_OF_BOUNDS:
+			return "commit_out_of_bounds";
+		default:
+			return "unknown";
+	}
+}
+
 struct canota_ctx *canota_init(const char *iface) {
 	int can_fd = socket(PF_CAN, SOCK_RAW, CAN_RAW);
 	if(can_fd < 0) {
@@ -160,6 +183,7 @@ bool canota_raw_recv_and_status(struct canota_device_ctx *dev, uint8_t cmd, uint
 }
 
 #define CHECK(expr, msg, lbl) { if(!(expr)) {fprintf(stderr, "[canota_lib] " msg "\n"); goto lbl;} }
+#define CHECK_STATUS(status, expected, msg, lbl) { if((status) != (expected)) {fprintf(stderr, "[canota_lib] " msg ": status = %s\n", decode_status(status)); goto lbl;} }
 
 bool canota_cmd_device_ident_req(struct canota_device_ctx *dev) {
 	return canota_raw_cmd(dev, CMD_DEVICE_IDENT_REQ, 0, NULL, 0);
@@ -253,7 +277,7 @@ bool canota_flash_erase(struct canota_device_ctx *dev, uint32_t erase_start, uin
 	CHECK(canota_cmd_flash_erase(dev, erase_start, erase_len), "write fail", check_fail);
 	CHECK(canota_raw_recv(dev, CMD_STATUS, &param, &data, &len), "no response to flash_erase", check_fail);
 	CHECK(len == 0, "flash_erase status recv length != 0", check_fail);
-	CHECK(param == PROTOCOL_STATUS_ERASE_OK, "erase failed", check_fail);
+	CHECK_STATUS(param, PROTOCOL_STATUS_ERASE_OK, "erase failed", check_fail);
 	return true;
 
 check_fail:
@@ -277,7 +301,7 @@ bool canota_flash_write_page(struct canota_device_ctx *dev, void *data, uint32_t
 	CHECK(canota_cmd_flash_buffer_commit(dev, addr, crc, param), "write failed", check_fail);
 	CHECK(canota_raw_recv(dev, CMD_STATUS, &param, &data, &len), "no response to flash_buffer_commit", check_fail);
 	CHECK(len == 0, "flash_buffer_commit status recv length != 0", check_fail);
-	CHECK(param == PROTOCOL_STATUS_COMMIT_OK, "flash_buffer_commit failed", check_fail);
+	CHECK_STATUS(param, PROTOCOL_STATUS_COMMIT_OK, "flash_buffer_commit failed", check_fail);
 	return true;
 
 check_fail:
@@ -291,7 +315,7 @@ bool canota_checksum(struct canota_device_ctx *dev, uint32_t checksum_start, uin
 	union u64_aliases data;
 	CHECK(canota_cmd_flash_checksum(dev, checksum_start, checksum_len), "write fail", check_fail);
 	CHECK(canota_raw_recv_and_status(dev, CMD_FLASH_CHECKSUM_RESP, &param, &data, &len,&status), "no response to flash_checksum", check_fail);
-	CHECK(status == PROTOCOL_STATUS_NONE, "checksum request failed, out of range", check_fail);
+	CHECK_STATUS(status, PROTOCOL_STATUS_NONE, "checksum request failed", check_fail);
 	CHECK(len == 8, "reset_info recv len != 8", check_fail);
 	CHECK(data.u32[0] == checksum_start, "checksum response start invalid", check_fail);
 	*checksum_out = data.u32[1];
@@ -328,7 +352,7 @@ bool canota_flash_write(struct canota_device_ctx *dev, void *data, uint32_t len,
 				success = true;
 				break;
 			}
-			fprintf(stderr, "[canota_lib] retrying");
+			fprintf(stderr, "[canota_lib] retrying\n");
 		}
 		CHECK(success, "could not commit page to flash", check_fail);
 	}

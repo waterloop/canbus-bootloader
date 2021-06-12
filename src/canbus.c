@@ -1,7 +1,7 @@
 #include "canbus.h"
 #include "utils.h"
 
-#include <stm32l432xx.h>
+#include <system_inc.h>
 
 void canbus_init(uint8_t short_device_id) {
 	// Enable APB1 clock for CAN1

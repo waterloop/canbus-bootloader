@@ -20,7 +20,7 @@
 
 void print_usage(char *argv0) {
 	fprintf(stderr, "Usage: %s INTERFACE COMMAND [ARGS...]\n", argv0);
-	fprintf(stderr, "    COMMAND must be one of: [scan, info, mode, reset, erase, checksum, flash]\n");
+	fprintf(stderr, "    COMMAND must be one of: [scan, info, change_id, mode, reset, erase, checksum, flash]\n");
 }
 
 char *decode_type(uint8_t type) {
@@ -99,6 +99,11 @@ int cmd_info(char *iface, uint8_t short_device_id) {
 	return 0;
 }
 
+int cmd_change_id(char *iface, uint8_t short_device_id, uint8_t new_id) {
+	GET_DEV();
+	return canota_change_short_id(dev, new_id);
+}
+
 int cmd_mode(char *iface, uint8_t short_device_id, enum canota_mode mode) {
 	GET_DEV();
 	return !canota_mode_switch(dev, mode);
@@ -170,6 +175,12 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		return cmd_info(argv[1], parse_uint32(argv[3]));
+	} else if(strcmp(argv[2], "change_id") == 0) {
+		if(argc < 5) {
+			fprintf(stderr, "Not enough arguments.\nUsage: %s %s change_id SHORT_ID NEW_SHORT_ID\n", argv[0], argv[1]);
+			return 1;
+		}
+		return cmd_change_id(argv[1], parse_uint32(argv[3]), parse_uint32(argv[4]));
 	} else if(strcmp(argv[2], "mode") == 0) {
 		if(argc < 5) {
 			fprintf(stderr, "Not enough arguments.\nUsage: %s %s mode SHORT_ID MODE\n", argv[0], argv[1]);

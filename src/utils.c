@@ -1,6 +1,6 @@
 #include "utils.h"
 
-#include "stm32l432xx.h"
+#include <system_inc.h>
 
 void init_crc(void) {
     RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
