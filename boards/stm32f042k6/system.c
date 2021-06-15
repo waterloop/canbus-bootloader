@@ -43,7 +43,3 @@ void SystemInit(void) {
 	// Enable interrupts
 	__enable_irq();
 }
-
-void reset(void) {
-
-}

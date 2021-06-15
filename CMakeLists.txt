@@ -4,8 +4,6 @@ set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
 
 project(bootloader LANGUAGES C ASM)
 
-set(CPU "cortex-m4")
-
 SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
 
 file(GLOB board_files "boards/*")
@@ -16,6 +14,8 @@ foreach(board_file IN ITEMS ${board_files})
     file(GLOB_RECURSE sources "src/*.c" "src/*.s" "boards/${board}/startup.s" "boards/${board}/system.c")
 
     set(linker_script "${CMAKE_SOURCE_DIR}/boards/${board}/bootloader.ld")
+
+    include("boards/${board}/vars.cmake")
 
     add_executable(${board}.elf)
     target_sources(${board}.elf PRIVATE ${sources})

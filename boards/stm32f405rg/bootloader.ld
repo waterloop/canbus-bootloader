@@ -17,7 +17,7 @@ SECTIONS
 {
 	.text :
 	{
-		KEEP(*(.vectors))
+		KEEP(*(.isr_vector))
 		*(.text*)
 		*(.rodata*)
 		_etext = .;

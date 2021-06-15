@@ -80,7 +80,8 @@ void change_short_device_id(uint32_t short_device_id) {
 
 #define CMD_ID(cmd) (0x1F000000 | ((cmd) << 16))
 
-void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
+// Function name must be CAN_RX0_Handler_Func, as defined in system_inc.h
+void __attribute__ ((interrupt ("IRQ"))) CAN_RX0_Handler_Func() {
     uint32_t id;
     union u64_aliases data;
     uint8_t len;
@@ -116,7 +117,7 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 				change_mode(param);
 			}
 			// System reset
-			SCB->AIRCR ^= 0xFFFF0000 | SCB_AIRCR_SYSRESETREQ_Msk; // Does not return
+			RESET(); // Does not return
 			return;
 	}
 
@@ -131,7 +132,7 @@ void __attribute__ ((interrupt ("IRQ"))) CAN1_RX0_IRQHandler() {
 			}
 			change_short_device_id(param);
 			// System reset
-			SCB->AIRCR ^= 0xFFFF0000 | SCB_AIRCR_SYSRESETREQ_Msk; // Does not return
+			RESET(); // Does not return
 			return;
 		case CMD_FLASH_ERASE:
 			if(len != 8) {

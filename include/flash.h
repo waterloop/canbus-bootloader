@@ -28,7 +28,5 @@ void flash_lock(void);
 
 flash_ret_t flash_range_check(uint32_t start, uint32_t len);
 flash_ret_t flash_erase_addr_range(uint32_t start, uint32_t len);
-flash_ret_t flash_write(void *addr, const void *data, uint32_t len);
-
 
 #endif

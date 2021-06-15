@@ -4,17 +4,7 @@
 #include <system_inc.h>
 
 void canbus_init(uint8_t short_device_id) {
-	// Enable APB1 clock for CAN1
-	RCC->APB1ENR1 |= RCC_APB1ENR1_CAN1EN;
-	// Enable AHB2 clock for GPIO Port A
-	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-
-	// Clear alt functions for PA11 and PA12, and set them to alt function 9
-	GPIOA->AFR[1] = (GPIOA->AFR[1] & ~(GPIO_AFRH_AFSEL11_Msk | GPIO_AFRH_AFSEL12_Msk)) | REG_FIELD(GPIO_AFRH_AFSEL11, 9) | REG_FIELD(GPIO_AFRH_AFSEL12, 9);
-	// Configure GPIO pins PA11 and PA12 to be very high speed
-	GPIOA->OSPEEDR |= REG_FIELD(GPIO_OSPEEDR_OSPEED11, 3) | REG_FIELD(GPIO_OSPEEDR_OSPEED12, 3);
-	// Clear port mode configuration for PA11 and PA12, and set them to Alterate function mode
-	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODE11_Msk | GPIO_MODER_MODE12_Msk)) | REG_FIELD(GPIO_MODER_MODE11, 2) | REG_FIELD(GPIO_MODER_MODE12, 2);
+	canbus_setup();
 
 	// Request to switch into initialization mode and exit sleep mode. Also set debug freeze to 0
 	CAN->MCR = CAN_MCR_INRQ;
@@ -22,8 +12,8 @@ void canbus_init(uint8_t short_device_id) {
 	// Wait for initialization mode confirmation
 	while(!(CAN->MSR & CAN_MSR_INAK_Msk));
 
-	// SJW = 0 (tRJW: 1q), TS2 = 0 (tBS2: 1q), TS1 = 5 (tBS1: 6q), BRP = 9 (prescaler: 10, f = 8MHz)
-	CAN->BTR = REG_FIELD(CAN_BTR_SJW, 0) | REG_FIELD(CAN_BTR_TS2, 0) | REG_FIELD(CAN_BTR_TS1, 5) | REG_FIELD(CAN_BTR_BRP, 9);
+	// Configure CAN bus dividers and timing. This value is board specific
+	CAN->BTR = CAN_BTR_Value;
 
 	// Request to switch into normal mode
 	// While we're at it, enable auto bus-off management, and auto wake-up
@@ -63,7 +53,8 @@ void canbus_init(uint8_t short_device_id) {
 
     // Enable interrupts on FIFO 0 first
     CAN->IER |= CAN_IER_FMPIE0;
-    NVIC->ISER[CAN1_RX0_IRQn >> 5] |= (1 << (CAN1_RX0_IRQn & 31));
+
+	NVIC->ISER[CAN_RX0_IRQn_Value >> 5] |= (1 << (CAN_RX0_IRQn_Value & 31));
 }
 
 // Skips length checks and assumes data is 8 bytes long
@@ -98,20 +89,20 @@ canbus_ret_t canbus_transmit(uint32_t id, const void *data, uint8_t len) {
 void canbus_enable_isr2(void) {
     // Enable interrupts on FIFO 1
     CAN->IER |= CAN_IER_FMPIE1;
-    NVIC->ISER[CAN1_RX1_IRQn >> 5] |= (1 << (CAN1_RX1_IRQn & 31));
+    NVIC->ISER[CAN_RX1_IRQn_Value >> 5] |= (1 << (CAN_RX1_IRQn_Value & 31));
 }
 
 canbus_ret_t canbus_receive(uint32_t *id, void *data, uint8_t *len, uint8_t mailbox) {
-    volatile uint32_t *RFxR = &CAN1->RF0R + mailbox;
+    volatile uint32_t *RFxR = &CAN->RF0R + mailbox;
     // Check for non empty FIFO
     if((*RFxR & CAN_RF0R_FMP0_Msk) == 0) {
         return CANBUS_NO_DATA;
     }
     // Copy data into RAM
-    *id = CAN1->sFIFOMailBox[mailbox].RIR;
-	((uint32_t *) data)[0] = CAN1->sFIFOMailBox[mailbox].RDLR;
-	((uint32_t *) data)[1] = CAN1->sFIFOMailBox[mailbox].RDHR;
-    *len = CAN1->sFIFOMailBox[mailbox].RDTR & CAN_RDT0R_DLC_Msk;
+    *id = CAN->sFIFOMailBox[mailbox].RIR;
+	((uint32_t *) data)[0] = CAN->sFIFOMailBox[mailbox].RDLR;
+	((uint32_t *) data)[1] = CAN->sFIFOMailBox[mailbox].RDHR;
+    *len = CAN->sFIFOMailBox[mailbox].RDTR & CAN_RDT0R_DLC_Msk;
     *RFxR |= CAN_RF0R_RFOM0;
 	return CANBUS_OK;
 }
