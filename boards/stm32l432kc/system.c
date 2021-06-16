@@ -68,7 +68,7 @@ uint32_t flash_addr_to_page(uint32_t start) {
 flash_ret_t flash_erase_page(uint32_t page) {
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
 	FLASH->SR |= ALL_FLASH_ERR; // Clear all previous errors
-	FLASH->CR |= REG_FIELD(FLASH_CR_PNB, page) | FLASH_CR_PER;
+	FLASH->CR = (FLASH->CR & ~FLASH_CR_PNB) | REG_FIELD(FLASH_CR_PNB, page) | FLASH_CR_PER;
 	FLASH->CR |= FLASH_CR_STRT; // Start erase
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
 	FLASH->CR &= ~FLASH_CR_PER; // Disable page erase

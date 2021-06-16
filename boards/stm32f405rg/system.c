@@ -58,7 +58,7 @@ uint32_t flash_addr_to_page(uint32_t start) {
 // Page 85 of reference manual
 flash_ret_t flash_erase_page(uint32_t page) {
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
-	FLASH->CR |= FLASH_CR_SER | REG_FIELD(FLASH_CR_SNB, page);
+	FLASH->CR = (FLASH->CR & ~FLASH_CR_SNB) | REG_FIELD(FLASH_CR_SNB, page) | FLASH_CR_SER;
 	FLASH->CR |= FLASH_CR_STRT;
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
 	FLASH->CR &= ~FLASH_CR_SER;
