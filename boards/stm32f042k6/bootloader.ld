@@ -4,11 +4,14 @@ MEMORY
 	boot_config (rx)  : ORIGIN = 0x08001800, LENGTH =     2K
 	app_rom     (rx)  : ORIGIN = 0x08002000, LENGTH =    24K
 
-	ram         (rwx) : ORIGIN = 0x20000000, LENGTH =     6K
+	app_isr     (rwx) : ORIGIN = 0x20000000, LENGTH =    192
+	ram         (rwx) : ORIGIN = 0x200000C0, LENGTH =   5952
 }
 
 _sapp_rom = ORIGIN(app_rom);
 _eapp_rom = ORIGIN(app_rom) + LENGTH(app_rom);
+_sapp_isr = ORIGIN(app_isr);
+_eapp_isr = ORIGIN(app_isr) + LENGTH(app_isr);
 _sboot_config = ORIGIN(boot_config);
 _eboot_config = ORIGIN(boot_config) + LENGTH(boot_config);
 _estack = ORIGIN(ram) + LENGTH(ram);

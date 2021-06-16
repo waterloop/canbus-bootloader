@@ -1,8 +1,8 @@
 MEMORY
 {
-	boot_rom    (rx)  : ORIGIN = 0x08000000, LENGTH =     6K
-	boot_config (rx)  : ORIGIN = 0x08001800, LENGTH =     2K
-	app_rom     (rx)  : ORIGIN = 0x08002000, LENGTH =  1016K
+	boot_rom    (rx)  : ORIGIN = 0x08000000, LENGTH =    16K
+	boot_config (rx)  : ORIGIN = 0x08004000, LENGTH =    16K
+	app_rom     (rx)  : ORIGIN = 0x08008000, LENGTH =   992K
 
 	ram         (rwx) : ORIGIN = 0x20000000, LENGTH =   128K
 }

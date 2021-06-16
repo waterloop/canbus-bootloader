@@ -1,11 +1,9 @@
 #include "canbus.h"
-#include "utils.h"
+#include "platform.h"
 
 #include <system_inc.h>
 
 void canbus_init(uint8_t short_device_id) {
-	canbus_setup();
-
 	// Request to switch into initialization mode and exit sleep mode. Also set debug freeze to 0
 	CAN->MCR = CAN_MCR_INRQ;
 

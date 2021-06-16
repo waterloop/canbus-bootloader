@@ -1,6 +1,7 @@
 #include "canbus.h"
-#include "utils.h"
+#include "platform.h"
 #include "flash.h"
+#include "crc32.h"
 
 #include <system_inc.h>
 
@@ -55,7 +56,7 @@ void change_mode(uint8_t mode) {
     struct flash_eeprom_entry entry;
     if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
         if(mode != old_entry->mode) {
-            entry = *old_entry;
+	        *(uint64_t *) &entry = *(uint64_t *) old_entry; // Manual copy to prevent memcpy
             entry.mode = mode;
             flash_unlock();
             flash_eeprom_write(&entry);
@@ -69,7 +70,7 @@ void change_short_device_id(uint32_t short_device_id) {
     struct flash_eeprom_entry entry;
     if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
         if(short_device_id != old_entry->short_device_id) {
-            entry = *old_entry;
+	        *(uint64_t *) &entry = *(uint64_t *) old_entry; // Manual copy to prevent memcpy
             entry.short_device_id = short_device_id;
             flash_unlock();
             flash_eeprom_write(&entry);
@@ -159,12 +160,8 @@ void __attribute__ ((interrupt ("IRQ"))) CAN_RX0_Handler_Func() {
 				param = PROTOCOL_STATUS_CRC_OUT_OF_BOUNDS;
 				goto transmit;
 			}
-			CRC->INIT = 0xFFFFFFFF;
-			for(uint32_t ptr = data.u32[0]; ptr < data.u32[0] + data.u32[1]; ++ptr) {
-				*(uint8_t *) &CRC->DR = *(uint8_t *) ptr;
-			}
 			id = CMD_ID(CMD_FLASH_CHECKSUM_RESP);
-			data.u32[1] = CRC->DR ^ 0xFFFFFFFF;
+			data.u32[1] = ~crc32(CRC32_INIT, (void *) data.u32[0], data.u32[1]);
 			param = 0;
 			goto transmit;
 		case CMD_FLASH_BUFFER_WRITE_DATA:
@@ -177,18 +174,14 @@ void __attribute__ ((interrupt ("IRQ"))) CAN_RX0_Handler_Func() {
 			if(len != 8 || data.u32[0] & 7) { // Make sure that address is a multiple of 8
 				return;
 			}
-			CRC->INIT = 0xFFFFFFFF;
-			CRC->DR = data.u32[0];
-			*(uint8_t *) &CRC->DR = param; // Perform 8 bit write
-			for(uint16_t i = 0; i <= param; ++i) {
-				CRC->DR = flash_write_buffer[i].u32[0];
-				CRC->DR = flash_write_buffer[i].u32[1];
-			}
+			uint32_t crc = crc32(CRC32_INIT, &data.u32[0], 4);
+			crc = crc32(crc, &param, 1);
+			crc = crc32(crc, flash_write_buffer, (param + 1) << 3);
 			id = CMD_ID(CMD_STATUS);
 			if(flash_range_check(data.u32[0], ((uint32_t) param + 1) << 3) != FLASH_OK) {
 				len = 0;
 				param = PROTOCOL_STATUS_COMMIT_OUT_OF_BOUNDS;
-			} else if((CRC->DR ^ 0xFFFFFFFF) == data.u32[1]) {
+			} else if(~crc == data.u32[1]) {
 				flash_unlock();
 				if(flash_write((void *) data.u32[0], flash_write_buffer, ((uint32_t) param + 1) << 3) == FLASH_OK) {
 					len = 0;
@@ -211,13 +204,13 @@ transmit:
 }
 
 int main(void) {
-    init_crc();
     uint32_t device_id = compute_device_id();
 
-	struct flash_eeprom_entry entry = {};
+	struct flash_eeprom_entry entry;
+	*(uint64_t *) &entry = 0; // Manual zeroing to prevent gcc from generating calls to memset
     struct flash_eeprom_entry *old_entry;
     if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
-        entry = *old_entry;
+	    *(uint64_t *) &entry = *(uint64_t *) old_entry; // Manual copy to prevent memcpy
     } else {
         // State not configured, generate some default states and store it
         entry.is_free = 0;
@@ -248,20 +241,8 @@ int main(void) {
 	RCC->CSR |= RCC_CSR_RMVF;
 
 	if(entry.mode == MODE_APPLICATION) {
-		DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Start CYCCNT counter
-		uint32_t starting = DWT->CYCCNT;
-		while(DWT->CYCCNT - starting <= 80000000L); // Delay for 1s (80M cycles), to allow mode switching in case of crash
-
-		__disable_irq();
-
-	    SCB->VTOR = (uint32_t) &_sapp_rom;
-
-		__enable_irq();
-
-	    // Update stack pointer to the one specified in user application
-	    __asm volatile("mov sp, %0" : : "r" ((&_sapp_rom)[0]));
-	    // Jump to the user application. Does not return
-		__asm volatile("bx %0" : : "r" ((&_sapp_rom)[1]));
+		sleep(1000);
+		start_user_app();
 	}
 	while(1); // Never return
 }

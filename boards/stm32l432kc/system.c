@@ -1,5 +1,5 @@
-#include "utils.h"
-#include "flash.h"
+#include "platform.h"
+#include "crc32.h"
 #include "system_inc.h"
 
 void SystemInit(void) {
@@ -9,6 +9,11 @@ void SystemInit(void) {
 	// Set FLASH configurations to prepare for 80MHz
 	// Enable data and instruction cache, enable prefetch, latency 4 wait states
 	FLASH->ACR = FLASH_ACR_DCEN | FLASH_ACR_ICEN | FLASH_ACR_PRFTEN | FLASH_ACR_LATENCY_4WS;
+
+	// Enable APB1 clock for CAN1
+	RCC->APB1ENR1 |= RCC_APB1ENR1_CAN1EN;
+	// Enable AHB2 clock for GPIO Port A
+	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
 
 	// Clock configuration begin
 
@@ -41,30 +46,23 @@ void SystemInit(void) {
 
 	// Clock configuration complete
 
-	// Enable interrupts
-	__enable_irq();
-}
-
-void canbus_setup(void) {
-	// Enable APB1 clock for CAN1
-	RCC->APB1ENR1 |= RCC_APB1ENR1_CAN1EN;
-	// Enable AHB2 clock for GPIO Port A
-	RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-
+	// Setup CAN bus peripheral
 	// Clear alt functions for PA11 and PA12, and set them to alt function 9
 	GPIOA->AFR[1] = (GPIOA->AFR[1] & ~(GPIO_AFRH_AFSEL11 | GPIO_AFRH_AFSEL12)) | REG_FIELD(GPIO_AFRH_AFSEL11, 9) | REG_FIELD(GPIO_AFRH_AFSEL12, 9);
 	// Configure GPIO pins PA11 and PA12 to be very high speed
 	GPIOA->OSPEEDR |= REG_FIELD(GPIO_OSPEEDR_OSPEED11, 3) | REG_FIELD(GPIO_OSPEEDR_OSPEED12, 3);
 	// Clear port mode configuration for PA11 and PA12, and set them to Alternate function mode
 	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODE11 | GPIO_MODER_MODE12)) | REG_FIELD(GPIO_MODER_MODE11, 2) | REG_FIELD(GPIO_MODER_MODE12, 2);
-}
 
-void crc_setup(void) {
-	RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
-	CRC->CR |= CRC_CR_REV_OUT | REG_FIELD(CRC_CR_REV_IN, 3);
+	// Enable interrupts
+	__enable_irq();
 }
 
 #define ALL_FLASH_ERR (FLASH_SR_FASTERR | FLASH_SR_MISERR | FLASH_SR_PGSERR | FLASH_SR_SIZERR | FLASH_SR_PGAERR | FLASH_SR_WRPERR | FLASH_SR_PROGERR)
+
+uint32_t flash_addr_to_page(uint32_t start) {
+	return (start - 0x08000000) >> 11;
+}
 
 // Page 83 of reference manual, 3.3.6
 flash_ret_t flash_erase_page(uint32_t page) {
@@ -101,4 +99,41 @@ flash_ret_t flash_write(void *addr, const void *data, uint32_t len) {
 	}
 	FLASH->CR &= ~FLASH_CR_PG;
 	return FLASH_OK;
+}
+
+
+void flash_unlock(void) {
+	if(FLASH->CR & FLASH_CR_LOCK) {
+		FLASH->KEYR = 0x45670123;
+		FLASH->KEYR = 0xCDEF89AB;
+	}
+}
+
+void flash_lock(void) {
+	FLASH->CR |= FLASH_CR_LOCK;
+}
+
+uint32_t compute_device_id() {
+	return ~crc32(CRC32_INIT, (void *) UID_BASE, 12);
+}
+
+void sleep(uint32_t ms) {
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Start CYCCNT counter
+	uint32_t starting = DWT->CYCCNT;
+	while(DWT->CYCCNT - starting <= ms * SYSTEM_CLOCK_KHZ);
+}
+
+extern uint32_t _sapp_rom;
+
+void start_user_app() {
+	__disable_irq();
+
+	SCB->VTOR = (uint32_t) &_sapp_rom;
+
+	__enable_irq();
+
+	// Update stack pointer to the one specified in user application
+	__asm volatile("mov sp, %0" : : "r" ((&_sapp_rom)[0]));
+	// Jump to the user application. Does not return
+	__asm volatile("bx %0" : : "r" ((&_sapp_rom)[1]));
 }
