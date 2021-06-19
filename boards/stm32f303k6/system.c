@@ -63,10 +63,10 @@ flash_ret_t flash_erase_page(uint32_t page) {
 	return FLASH_OK;
 }
 
-flash_ret_t flash_write(void *addr, const void *data, uint32_t len) {
+flash_ret_t flash_write(uint32_t addr, const void *data, uint32_t len) {
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
 	FLASH->CR |= FLASH_CR_PG;
-	uint16_t *dst = addr;
+	uint16_t *dst = (uint16_t *) addr;
 	const uint16_t *src = data;
 	uint16_t *end = (uint16_t *) ((uint8_t *) src + len);
 	while(src < end) {

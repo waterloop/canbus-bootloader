@@ -9,7 +9,7 @@
 
 uint32_t flash_addr_to_page(uint32_t start);
 flash_ret_t flash_erase_page(uint32_t page);
-flash_ret_t flash_write(void *addr, const void *data, uint32_t len);
+flash_ret_t flash_write(uint32_t addr, const void *data, uint32_t len);
 void flash_unlock(void);
 void flash_lock(void);
 

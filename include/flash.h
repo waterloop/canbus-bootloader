@@ -12,15 +12,13 @@ typedef enum {
 } flash_ret_t;
 
 struct flash_eeprom_entry {
-    uint8_t is_free: 1;
-    uint64_t reserved0: 15;
-    uint8_t mode;
-    uint8_t short_device_id;
-    uint32_t reserved1;
+	uint8_t short_device_id;
+	uint8_t mode;
+    uint16_t reserved0;
 } __attribute__ ((__packed__));
 
-void flash_eeprom_find_free(struct flash_eeprom_entry **entry_addr);
-flash_ret_t flash_eeprom_get_addr(struct flash_eeprom_entry **entry_addr);
+void flash_eeprom_find_free(const struct flash_eeprom_entry **entry_addr);
+flash_ret_t flash_eeprom_read(const struct flash_eeprom_entry **entry_addr);
 flash_ret_t flash_eeprom_write(const struct flash_eeprom_entry *entry);
 
 void flash_unlock(void);

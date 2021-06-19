@@ -78,11 +78,11 @@ flash_ret_t flash_erase_page(uint32_t page) {
 // Page 84 of reference manual, 3.3.7
 // Documentation states EOP should be cleared after write success.
 // We ignore it here because EOP only gets set when "end of operation" interrupts are enabled (EOPIE = 1)
-flash_ret_t flash_write(void *addr, const void *data, uint32_t len) {
+flash_ret_t flash_write(uint32_t addr, const void *data, uint32_t len) {
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
 	FLASH->SR |= ALL_FLASH_ERR; // Clear all previous errors
 	FLASH->CR |= FLASH_CR_PG;
-	uint32_t *dst = addr;
+	uint32_t *dst = (uint32_t *) addr;
 	const uint32_t *src = data;
 	uint32_t *end = (uint32_t *) ((uint8_t *) src + len);
 	while(src < end) {

@@ -51,32 +51,14 @@ union u64_aliases {
 
 union u64_aliases flash_write_buffer[256];
 
-void change_mode(uint8_t mode) {
-    struct flash_eeprom_entry *old_entry;
+void update_config(uint8_t short_device_id, uint8_t mode) {
     struct flash_eeprom_entry entry;
-    if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
-        if(mode != old_entry->mode) {
-	        *(uint64_t *) &entry = *(uint64_t *) old_entry; // Manual copy to prevent memcpy
-            entry.mode = mode;
-            flash_unlock();
-            flash_eeprom_write(&entry);
-            flash_lock();
-        }
-    }
-}
-
-void change_short_device_id(uint32_t short_device_id) {
-    struct flash_eeprom_entry *old_entry;
-    struct flash_eeprom_entry entry;
-    if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
-        if(short_device_id != old_entry->short_device_id) {
-	        *(uint64_t *) &entry = *(uint64_t *) old_entry; // Manual copy to prevent memcpy
-            entry.short_device_id = short_device_id;
-            flash_unlock();
-            flash_eeprom_write(&entry);
-            flash_lock();
-        }
-    }
+    *(uint32_t *) &entry = 0;
+	entry.short_device_id = short_device_id;
+	entry.mode = mode;
+	flash_unlock();
+	flash_eeprom_write(&entry);
+	flash_lock();
 }
 
 #define CMD_ID(cmd) (0x1F000000 | ((cmd) << 16))
@@ -114,8 +96,8 @@ void __attribute__ ((interrupt ("IRQ"))) CAN_RX0_Handler_Func() {
 			if(param != MODE_APPLICATION && param != MODE_BOOTLOADER && param != 0xFF) {
 				return;
 			}
-			if(param != 0xFF) {
-				change_mode(param);
+			if(param != 0xFF && param != (bootloader_key == BOOTLOADER_KEY)) {
+				update_config(short_device_id, param);
 			}
 			// System reset
 			RESET(); // Does not return
@@ -131,7 +113,7 @@ void __attribute__ ((interrupt ("IRQ"))) CAN_RX0_Handler_Func() {
 			if(len != 8 || data.u32[0] != INFO || data.u32[1] != compute_device_id()) {
 				return;
 			}
-			change_short_device_id(param);
+			update_config(param, MODE_BOOTLOADER);
 			// System reset
 			RESET(); // Does not return
 			return;
@@ -183,7 +165,7 @@ void __attribute__ ((interrupt ("IRQ"))) CAN_RX0_Handler_Func() {
 				param = PROTOCOL_STATUS_COMMIT_OUT_OF_BOUNDS;
 			} else if(~crc == data.u32[1]) {
 				flash_unlock();
-				if(flash_write((void *) data.u32[0], flash_write_buffer, ((uint32_t) param + 1) << 3) == FLASH_OK) {
+				if(flash_write(data.u32[0], flash_write_buffer, ((uint32_t) param + 1) << 3) == FLASH_OK) {
 					len = 0;
 					param = PROTOCOL_STATUS_COMMIT_OK;
 				} else {
@@ -207,18 +189,14 @@ int main(void) {
     uint32_t device_id = compute_device_id();
 
 	struct flash_eeprom_entry entry;
-	*(uint64_t *) &entry = 0; // Manual zeroing to prevent gcc from generating calls to memset
-    struct flash_eeprom_entry *old_entry;
-    if(flash_eeprom_get_addr(&old_entry) == FLASH_OK) {
-	    *(uint64_t *) &entry = *(uint64_t *) old_entry; // Manual copy to prevent memcpy
+    const struct flash_eeprom_entry *old_entry;
+    if(flash_eeprom_read(&old_entry) == FLASH_OK) {
+	    *(uint32_t *) &entry = *(uint32_t *) old_entry;
     } else {
-        // State not configured, generate some default states and store it
-        entry.is_free = 0;
+        // State not configured, generate some default states and write to flash
         entry.short_device_id = device_id & 0xFF;
         entry.mode = MODE_BOOTLOADER;
-	    flash_unlock();
-        flash_eeprom_write(&entry);
-        flash_lock();
+	    flash_eeprom_write(&entry);
     }
 
     if(entry.mode == MODE_BOOTLOADER) {

@@ -18,10 +18,10 @@ void SystemInit(void) {
 	// Enable HSE external oscillator and turn on Clock Security System
 	RCC->CR |= RCC_CR_HSEON | RCC_CR_CSSON;
 	// Select HSE as input to PLL, APB1 Prescaler = 4, APB2 Prescaler = 2, SYSCLK not divided
-	RCC->CFGR |= RCC_CFGR_PPRE2_DIV2 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_PPRE1_DIV2 | RCC_CFGR_HPRE_DIV1;
-	// PLLSRC = HSE, PLLN = 168, PLLP = 2, PLLQ = 7, PLLM = 8
+	RCC->CFGR |= RCC_CFGR_PPRE2_DIV2 | RCC_CFGR_PPRE1_DIV4 | RCC_CFGR_HPRE_DIV1;
+	// PLLSRC = HSE, PLLN = 168, PLLP = 0 (/ 2), PLLQ = 7 (/7), PLLM = 8
 	RCC->PLLCFGR = (RCC->PLLCFGR & ~(RCC_PLLCFGR_PLLQ | RCC_PLLCFGR_PLLM | RCC_PLLCFGR_PLLN | RCC_PLLCFGR_PLLP)) |
-			RCC_PLLCFGR_PLLSRC_HSE | REG_FIELD(RCC_PLLCFGR_PLLN, 168) | REG_FIELD(RCC_PLLCFGR_PLLP, 2) | REG_FIELD(RCC_PLLCFGR_PLLQ, 7) | REG_FIELD(RCC_PLLCFGR_PLLM, 8);
+			RCC_PLLCFGR_PLLSRC_HSE | REG_FIELD(RCC_PLLCFGR_PLLN, 168) | REG_FIELD(RCC_PLLCFGR_PLLP, 0) | REG_FIELD(RCC_PLLCFGR_PLLQ, 7) | REG_FIELD(RCC_PLLCFGR_PLLM, 8);
 	// Turn on PLL
 	RCC->CR |= RCC_CR_PLLON;
 	// Wait for HSE and PLL lock
@@ -71,10 +71,10 @@ flash_ret_t flash_erase_page(uint32_t page) {
 // Page 86 of reference manual
 // Documentation states EOP should be cleared after write success.
 // We ignore it here because EOP only gets set when "end of operation" interrupts are enabled (EOPIE = 1)
-flash_ret_t flash_write(void *addr, const void *data, uint32_t len) {
+flash_ret_t flash_write(uint32_t addr, const void *data, uint32_t len) {
 	while(FLASH->SR & FLASH_SR_BSY); // Wait for ready
 	FLASH->CR |= FLASH_CR_PG;
-	uint32_t *dst = addr;
+	uint32_t *dst = (uint32_t *) addr;
 	const uint32_t *src = data;
 	uint32_t *end = (uint32_t *) ((uint8_t *) src + len);
 	while(src < end) {

@@ -20,7 +20,7 @@ foreach(board_file IN ITEMS ${board_files})
     add_executable(${board}.elf)
     target_sources(${board}.elf PRIVATE ${sources})
     target_include_directories(${board}.elf PRIVATE "${CMAKE_SOURCE_DIR}/include" "${CMAKE_SOURCE_DIR}/include/system" "${CMAKE_SOURCE_DIR}/boards/${board}" "${CMAKE_SOURCE_DIR}/boards/${board}/system")
-    target_compile_options(${board}.elf PRIVATE -mcpu=${CPU} -mthumb -Wall -std=c11 -MMD -Og -fno-builtin -ffreestanding -ffunction-sections -fdata-sections -g)
+    target_compile_options(${board}.elf PRIVATE -mcpu=${CPU} -mthumb -Wall -std=c11 -MMD -Og -fno-builtin -ffreestanding -ffunction-sections -fdata-sections -g -fstack-usage)
     target_link_options(${board}.elf PRIVATE -mcpu=${CPU} -mthumb -nolibc -Wl,--gc-sections -Wl,-Map=${CMAKE_BINARY_DIR}/${board}.map -Wl,--print-memory-usage -T${linker_script})
     set_target_properties(${board}.elf PROPERTIES LINK_DEPENDS ${linker_script})
 
