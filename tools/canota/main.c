@@ -163,10 +163,6 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	const char *ops[] = {"scan", "info", "mode", "erase", "checksum", "flash", "reset"};
-	const int n_ops = sizeof(ops) / sizeof(ops[0]);
-	int op = -1;
-
 	if(strcmp(argv[2], "scan") == 0) {
 		return cmd_scan(argv[1]);
 	} else if(strcmp(argv[2], "info") == 0) {
@@ -218,6 +214,9 @@ int main(int argc, char *argv[]) {
 		}
 
 		return cmd_flash(argv[1], parse_uint32(argv[3]), argv[4], parse_uint32(argv[5]), len);
+	} else {
+		fprintf(stderr, "COMMAND is invalid\r\n");
+		print_usage(argv[0]);
 	}
 
 	return 0;
