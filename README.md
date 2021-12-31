@@ -3,6 +3,10 @@
 ### About
 This project attempts to create a bootloader that has the capability of writing to flash with commands on the CAN bus.
 
+## Adding the cli tool
+The cli tool for this package is included as a submodule.
+To add it, run `git submodule inti` followed by `git submodule update`
+
 ### Building and Running
 You will need a cross-compiler for ARM to compile this project. Specifically, `arm-none-eabi-gcc`.
 
