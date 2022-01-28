@@ -19,8 +19,8 @@ uint8_t clock_config() {
     // turn on PLL
     RCC->CR |= RCC_CR_PLLON;
 
-    // wait for PLL to lock
-    while((RCC->CR & (RCC_CR_PLLRDY | RCC_CR_HSERDY)) != (RCC_CR_PLLRDY | RCC_CR_HSERDY)) { asm("NOP"); }
+    // wait for HSE and for PLL to lock
+    while( (RCC->CR & (RCC_CR_PLLRDY | RCC_CR_HSERDY)) != (RCC_CR_PLLRDY | RCC_CR_HSERDY) ) { asm("NOP"); }
 
     // switch SYSCLK to PLL
     RCC->CFGR |= RCC_CFGR_SW_PLL;
