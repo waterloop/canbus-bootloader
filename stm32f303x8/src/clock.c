@@ -1,7 +1,7 @@
 #include "stm32f3xx.h"
 #include "clock.h"
 
-uint8_t clock_config() {
+void clock_init() {
     __disable_irq();
 
     // set FLASH to prepare for 64MHz

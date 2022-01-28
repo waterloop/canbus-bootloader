@@ -3,7 +3,9 @@
 int main();
 
 int main() {
-    clock_config();
+    clock_init();
+
+    while (1) { asm("NOP"); }
 
     return 0;
 }

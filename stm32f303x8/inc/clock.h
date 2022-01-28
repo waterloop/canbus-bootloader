@@ -1,5 +1,3 @@
 #pragma once
 
-#include <stdint.h>
-
-uint8_t clock_config();
+void clock_init();

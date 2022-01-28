@@ -26,7 +26,7 @@ $(DEV_INCLUDES)
 MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
 LIBS = -lc -lm -lnosys
 
-C_FLAGS = $(C_INCLUDES) $(DEV_DEFS) $(MCU) $(OPT) -ffunction-sections -fdata-sections -Wall
+C_FLAGS = $(C_INCLUDES) $(DEV_DEFS) $(MCU) $(OPT) -fdata-sections -ffunction-sections -Wall
 C_FLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 
 ifeq ($(DEBUG), 1)
