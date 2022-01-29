@@ -24,7 +24,7 @@ C_INCLUDES = \
 $(DEV_INCLUDES)
 
 MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
-LIBS = -lc -lm -lnosys
+# LIBS = -lc -lm -lnosys
 
 C_FLAGS = $(C_INCLUDES) $(DEV_DEFS) $(MCU) $(OPT) -fdata-sections -ffunction-sections -Wall
 C_FLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
@@ -39,7 +39,7 @@ ifeq ($(DEBUG), 1)
 	AS_FLAGS += -ggdb
 endif
 
-LD_FLAGS = $(MCU) -specs=nano.specs -T $(LD_SCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
+LD_FLAGS = $(MCU) -specs=nosys.specs -T $(LD_SCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
 
 OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
