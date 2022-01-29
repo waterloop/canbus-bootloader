@@ -4,7 +4,7 @@ TARGET = main
 BUILD_DIR = build
 
 DEBUG = 1
-OPT = -Os
+OPT = -Og
 
 CC = arm-none-eabi-gcc
 AS = arm-none-eabi-gcc -x assembler-with-cpp
@@ -34,6 +34,10 @@ ifeq ($(DEBUG), 1)
 endif
 
 AS_FLAGS = $(MCU) $(OPT) -Wall -fdata-sections -ffunction-sections
+
+ifeq ($(DEBUG), 1)
+	AS_FLAGS += -ggdb
+endif
 
 LD_FLAGS = $(MCU) -specs=nano.specs -T $(LD_SCRIPT) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
