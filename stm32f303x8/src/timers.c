@@ -7,7 +7,7 @@ void timers_init() {
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 
     // reset the timer
-    RCC->APB1RSTR |=  (RCC_APB1RSTR_TIM2RST);
+    RCC->APB1RSTR |= (RCC_APB1RSTR_TIM2RST);
     RCC->APB1RSTR &= ~(RCC_APB1RSTR_TIM2RST);
 
     // divide the 64MHz clock by 64000 to get a 1kHz timer
@@ -35,9 +35,5 @@ void delay_ms(uint32_t ms) {
 
     // wait until the timer counts up to the ms
     // value (it's a 1kHz timer so we can do this)
-    while (TIM2->CNT < ms) {
-        uint32_t thing = TIM2->CNT;
-        thing -= 1;
-        asm("NOP");
-    }
+    while (TIM2->CNT < ms) { asm("NOP"); }
 }
