@@ -4,6 +4,10 @@
 void clock_init() {
     __disable_irq();
 
+    /*
+    Configure the clock to run at 64MHz using HSE
+    */
+
     // set FLASH to prepare for 64MHz
     // enable prefetch, latency 2 wait states
     FLASH->ACR |= (FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_2);
