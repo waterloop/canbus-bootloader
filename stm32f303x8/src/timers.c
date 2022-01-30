@@ -23,7 +23,7 @@ void timers_init() {
     DBGMCU->APB1FZ &= ~(DBGMCU_APB1_FZ_DBG_TIM2_STOP);
 
     // generate an update event to apply newly configured settings
-    TIM2->EGR  |= TIM_EGR_UG;
+    TIM2->EGR |= TIM_EGR_UG;
 
     // start the timer
     TIM2->CR1 |= TIM_CR1_CEN;
