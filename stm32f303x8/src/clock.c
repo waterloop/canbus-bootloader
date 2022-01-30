@@ -25,5 +25,7 @@ void clock_init() {
     // switch SYSCLK to PLL
     RCC->CFGR |= RCC_CFGR_SW_PLL;
 
+    SystemCoreClockUpdate();
+
     __enable_irq();
 }
