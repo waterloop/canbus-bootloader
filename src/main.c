@@ -7,9 +7,13 @@ int main() {
     timers_init();
     can_init();
 
+    uint16_t id = 0x001;
+    uint8_t data[8] = {0x69, 0x69, 0x69, 0x69, 0x69, 0x69, 0x69, 0x69};
+    uint8_t len = 8;
+
     while (1) {
-        delay_ms(10000);
-        asm("NOP");
+        can_tx(id, data, len);
+        delay_ms(100);
     }
 
     return 0;
