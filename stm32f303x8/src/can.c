@@ -59,15 +59,6 @@ void can_init() {
     // set time quanta in bit segment 2 to 2
     CAN->BTR &= ~(CAN_BTR_TS2);
     CAN->BTR |= (1U << CAN_BTR_TS2_Pos);
-
-    // CAN->BTR = 1835011;
-    // CAN->BTR = 1966083;
-    // CAN->BTR = 1966085;
-    // CAN->BTR |= (CAN_BS1_13TQ | CAN_BS2_2TQ | 3);
-
-    // CAN->BTR |= (12U << CAN_BTR_TS1_Pos);
-    // CAN->BTR |= (1U << CAN_BTR_TS2_Pos);
-    // CAN->BTR |= (3U << CAN_BTR_BRP_Pos);
     /*
     bit timings setup done...
     */
@@ -97,20 +88,12 @@ void can_tx(uint16_t id, uint8_t* data, uint8_t len) {
                                    (tx_data[1] << 8)  |
                                    (tx_data[0]);
     CAN->sTxMailBox[mb_num].TDTR = len;
-    CAN->sTxMailBox[mb_num].TIR = id;
+    CAN->sTxMailBox[mb_num].TIR = (id << CAN_TI0R_STID_Pos);
 
     // set the TXRQ bit to send the message
     CAN->sTxMailBox[mb_num].TIR |= (CAN_TI0R_TXRQ);
 
-    uint32_t thing = CAN->ESR;
-    thing |= 1;
-
-    uint32_t thing2 = CAN->TSR;
-    thing2 |= 1;
-
     // wait for the message to go through
-    while (( CAN->TSR & (1 << (CAN_TSR_TME0_Pos + mb_num)) ) == 0) {
-        asm("NOP");
-    }
+    while (BIT_IS_CLEAR(CAN->TSR, CAN_TSR_TME0_Pos + mb_num)) { asm("NOP"); }
 }
 
