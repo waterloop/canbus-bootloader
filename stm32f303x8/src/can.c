@@ -26,15 +26,11 @@ void can_init() {
     */
 
     // exit sleep mode
-    CAN->MCR |= CAN_MCR_SLEEP;
-
-    // wait until the peripheral has exited sleep mode
-    while (BIT_IS_SET(CAN->MSR, CAN_MSR_SLAK)) { asm("NOP"); }
+    CAN->MCR &= ~(CAN_MCR_SLEEP);
+    while (BIT_IS_SET(CAN->MSR, CAN_MSR_SLAK_Pos)) { asm("NOP"); }
 
     // put CAN peripheral in initialization mode
     CAN->MCR |= CAN_MCR_INRQ;
-
-    // wait until the peripheral has entered initialization mode
     while (BIT_IS_CLEAR(CAN->MSR, CAN_MSR_INAK_Pos)) { asm("NOP"); }
 
     // turn on automatic retransmission and automatic wakeup
