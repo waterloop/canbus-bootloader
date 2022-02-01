@@ -5,6 +5,7 @@ int main();
 int main() {
     clock_init();
     timers_init();
+    can_init();
 
     while (1) {
         delay_ms(10000);
