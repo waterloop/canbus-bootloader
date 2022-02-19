@@ -3,7 +3,7 @@
 #include "utils.h"
 #include "can.h"
 
-void can_init() {
+CAN_Status can_init() {
     // enable APB1 clock for CAN
     RCC->AHBENR |= (RCC_AHBENR_GPIOFEN | RCC_AHBENR_GPIOAEN);
     RCC->APB1ENR |= RCC_APB1ENR_CANEN;
@@ -61,12 +61,20 @@ void can_init() {
 
     // put the CAN peripheral in normal mode
     CAN->MCR &= ~(CAN_MCR_INRQ);
-
-    // wait for the peripheral to enter normal mode
     while (BIT_IS_SET(CAN->MSR, CAN_MSR_INAK_Pos)) { asm("NOP"); }
+
+    // enable IRQ on RX FIFO 0
+    CAN->IER |= CAN_IER_FMPIE0;
+    NVIC_EnableIRQ(CAN_RX0_IRQn);
+
+    return CAN_OK;
 }
 
-void can_tx(uint16_t id, uint8_t* data, uint8_t len) {
+CAN_Status can_tx(uint16_t id, uint8_t* data, uint8_t len) {
+    if( (CAN->TSR & CAN_TSR_TME_Msk) == 0 ) {
+        return TX_MB_FULL_ERR;
+    }
+
     // we're always gonna transmit 8 bytes cus lmao
     uint8_t tx_data[8] = {0};
     for (uint8_t i = 0; i < len; i++) { tx_data[i] = data[i]; }
@@ -91,5 +99,39 @@ void can_tx(uint16_t id, uint8_t* data, uint8_t len) {
 
     // wait for the message to go through
     while (BIT_IS_CLEAR(CAN->TSR, CAN_TSR_TME0_Pos + mb_num)) { asm("NOP"); }
+
+    return CAN_OK;
+}
+
+CAN_Status can_rx(uint16_t* id, uint8_t* data, uint8_t* len) {
+    if ( (CAN->RF0R & CAN_RF0R_FMP0) == 0 ) {
+        return RX_MB_EMPTY_ERR;
+    }
+
+    // hardcoded to use mailbox 0 for now
+    uint8_t mb = 0;
+
+    uint8_t ide = (CAN->sFIFOMailBox[mb].RIR >> 2) & 1;
+    if (ide == 1) {
+        // extended id
+        return INVALID_ID_TYPE_ERR;
+    }
+
+    *id = (CAN->sFIFOMailBox[mb].RIR >> 21) & 0x7ff;
+    *len = (CAN->sFIFOMailBox[mb].RDTR & CAN_RDT0R_DLC);
+
+    data[0] = (CAN->sFIFOMailBox[mb].RDLR >> 0) & 0xff;
+    data[1] = (CAN->sFIFOMailBox[mb].RDLR >> 8) & 0xff;
+    data[2] = (CAN->sFIFOMailBox[mb].RDLR >> 16) & 0xff;
+    data[3] = (CAN->sFIFOMailBox[mb].RDLR >> 24) & 0xff;
+
+    data[4] = (CAN->sFIFOMailBox[mb].RDHR >> 0) & 0xff;
+    data[5] = (CAN->sFIFOMailBox[mb].RDHR >> 8) & 0xff;
+    data[6] = (CAN->sFIFOMailBox[mb].RDHR >> 16) & 0xff;
+    data[7] = (CAN->sFIFOMailBox[mb].RDHR >> 24) & 0xff; 
+
+    CAN->RF0R |= CAN_RF0R_RFOM0;
+
+    return CAN_OK;
 }
 
